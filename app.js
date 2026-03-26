@@ -1,61 +1,92 @@
-const express = require("express");
+const express = require('express');
 const app = express();
+
+// Variables d'environnement
+const VERIFY_TOKEN = process.env.WHATSAPP_VERIFY_TOKEN || 'EAAQQ3aRWelMBRHqiSqTA1iJ1NXFZBAvpDic12thrODTUEJiUqKNSd397SsrA7ZC9ntVZCnYUy79vkDmvcFFqeTPBvyOReB4HgiRALxsu5HdqDjwiZC2okhC7vmjvm9twV17q41V0R0jNZCOy27aN3sG4DWmxZAN6jVhgD6dWs1oC55ASRCzV0djtIywtDZAXFJdHAMomn3WFAHCQ3jUYoNx5mGpKb1iYy17S4vK5ZBoYFEQXyntSkutYzX0cMJQA5gNH5YFvKS6Lzpd1ZAZAd1YgCZB';
+const ACCESS_TOKEN = process.env.WHATSAPP_ACCESS_TOKEN || 'vibecoding';
+
 const port = process.env.PORT || 3001;
 
-app.get("/", (req, res) => res.type('html').send(html));
+// Middleware
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
-const server = app.listen(port, () => console.log(`Example app listening on port ${port}!`));
+// Route racinepour vérifier que le serveur fonctionne
+app.get('/', (req, res) => {
+  res.status(200).json({
+    status: 'ok',
+    message: 'WhatsApp Webhook Server is running',
+    webhook: '/webhooks/whatsapp'
+  });
+});
 
+// WEBHOOK WHATSAPP - GET (Vérification par Meta)
+app.get('/webhooks/whatsapp', (req, res) => {
+  const mode = req.query['hub.mode'];
+  const token = req.query['hub.verify_token'];
+  const challenge = req.query['hub.challenge'];
+
+  console.log(`\n📨 GET /webhooks/whatsapp`);
+  console.log(`  mode: ${mode}`);
+  console.log(`  token: ${token ? '✓ reçu' : '✗ manquant'}`);
+  console.log(`  challenge: ${challenge ? '✓ reçu' : '✗ manquant'}`);
+
+  // Vérifier mode et token
+  if (mode === 'subscribe' && token === VERIFY_TOKEN) {
+    console.log(`✅ Webhook VALIDÉ avec succès !`);
+    // IMPORTANT: retourner le challenge en TEXTE PUR, pas du JSON
+    res.status(200)
+      .type('text/plain')
+      .send(challenge);
+  } else {
+    console.log(`❌ Échec de validation`);
+    console.log(`  Expected token: ${VERIFY_TOKEN}`);
+    console.log(`  Received token: ${token}`);
+    res.status(403).json({ error: 'Forbidden' });
+  }
+});
+
+// WEBHOOK WHATSAPP - POST (Réception des messages)
+app.post('/webhooks/whatsapp', (req, res) => {
+  const body = req.body;
+  
+  console.log(`\n📨 POST /webhooks/whatsapp`);
+  console.log(`Payload reçu:`, JSON.stringify(body, null, 2));
+
+  // Toujours répondre 200 à Meta immédiatement
+  res.status(200).json({ status: 'received' });
+
+  // Traiter le message en arrière-plan
+  if (body.object === 'whatsapp_business_account' && body.entry) {
+    body.entry.forEach((entry) => {
+      entry.changes?.forEach((change) => {
+        const value = change.value;
+        const messages = value.messages || [];
+        
+        messages.forEach((message) => {
+          console.log(`\n💬 Nouveau message reçu:`);
+          console.log(`   De: ${message.from}`);
+          console.log(`   Type: ${message.type}`);
+          if (message.text) {
+            console.log(`   Texte: ${message.text.body}`);
+          }
+          // TODO: Appeler ton Crew AI ici pour traiter le message
+        });
+      });
+    });
+  }
+});
+
+// Démarrer le serveur
+const server = app.listen(port, () => {
+  console.log(`\n✅ WhatsApp Webhook Server démarré`);
+  console.log(`   Port: ${port}`);
+  console.log(`   Verify Token: ${VERIFY_TOKEN}`);
+  console.log(`   GET:  /webhooks/whatsapp (Vérification Meta)`);
+  console.log(`   POST: /webhooks/whatsapp (Réception messages)`);
+  console.log(`\n`);
+});
+
+// Gestion des timeouts
 server.keepAliveTimeout = 120 * 1000;
 server.headersTimeout = 120 * 1000;
-
-const html = `
-<!DOCTYPE html>
-<html>
-  <head>
-    <title>Hello from Render!</title>
-    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.5.1/dist/confetti.browser.min.js"></script>
-    <script>
-      setTimeout(() => {
-        confetti({
-          particleCount: 100,
-          spread: 70,
-          origin: { y: 0.6 },
-          disableForReducedMotion: true
-        });
-      }, 500);
-    </script>
-    <style>
-      @import url("https://p.typekit.net/p.css?s=1&k=vnd5zic&ht=tk&f=39475.39476.39477.39478.39479.39480.39481.39482&a=18673890&app=typekit&e=css");
-      @font-face {
-        font-family: "neo-sans";
-        src: url("https://use.typekit.net/af/00ac0a/00000000000000003b9b2033/27/l?primer=7cdcb44be4a7db8877ffa5c0007b8dd865b3bbc383831fe2ea177f62257a9191&fvd=n7&v=3") format("woff2"), url("https://use.typekit.net/af/00ac0a/00000000000000003b9b2033/27/d?primer=7cdcb44be4a7db8877ffa5c0007b8dd865b3bbc383831fe2ea177f62257a9191&fvd=n7&v=3") format("woff"), url("https://use.typekit.net/af/00ac0a/00000000000000003b9b2033/27/a?primer=7cdcb44be4a7db8877ffa5c0007b8dd865b3bbc383831fe2ea177f62257a9191&fvd=n7&v=3") format("opentype");
-        font-style: normal;
-        font-weight: 700;
-      }
-      html {
-        font-family: neo-sans;
-        font-weight: 700;
-        font-size: calc(62rem / 16);
-      }
-      body {
-        background: white;
-      }
-      section {
-        border-radius: 1em;
-        padding: 1em;
-        position: absolute;
-        top: 50%;
-        left: 50%;
-        margin-right: -50%;
-        transform: translate(-50%, -50%);
-      }
-    </style>
-  </head>
-  <body>
-    <section>
-      Hello from Render!
-    </section>
-  </body>
-</html>
-`
